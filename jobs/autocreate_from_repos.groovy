@@ -77,5 +77,27 @@ repos.collect{it.value}.findAll{it.projectPath=='projets'}.each{project ->
 			}
 		}
 	}
+	job(projectName+'_sonar') {
+		description 'Job sonar du projet ' + projectName
+		triggers {
+			scm {
+				git {
+					remote {
+						url('git://'+gitblitServer + '/' + project.name )
+						refspec('+refs/heads/*:refs/remotes/origin/*')
+					}
+					branch('master')
+					localBranch('master')
+				}
+			}
+		}
+		steps {
+			maven {
+				goals('clean sonar:sonar')
+				mavenOpts('-Xmx700m')
+				localRepository(javaposse.jobdsl.dsl.helpers.LocalRepositoryLocation.LOCAL_TO_WORKSPACE)
+			}
+		}
+	}
 }
 
