@@ -1,6 +1,7 @@
-def gitblitServer = '192.168.99.101'
+import fr.jobdsl.DefaultJob
+import fr.jobdsl.Constants
 
-def apiUrl = new URL("http://"+gitblitServer+":8081/rpc/?req=LIST_REPOSITORIES")
+def apiUrl = new URL("http://"+Constants.GITBLIT_SERVER+":8081/rpc/?req=LIST_REPOSITORIES")
 def repos= new groovy.json.JsonSlurper().parse(apiUrl.newReader())
 
 /**
@@ -54,52 +55,40 @@ def repos= new groovy.json.JsonSlurper().parse(apiUrl.newReader())
   }
 **/
 def branchNameFromRef = {it.minus('refs/heads/')}
-
 repos.collect{it.value}.findAll{it.projectPath=='projets'}.each{project -> 
+    def projectName = project.name.minus('projets/').minus('.git');
     project.availableRefs.collect(branchNameFromRef).each { branchName ->  
-        def projectName = project.name.minus('projets/').minus('.git')+ '_' + branchName;
-        job(projectName) {
-            description 'Job de build du projet ' + projectName
-            triggers {
-                scm {
-                    git {
-                        remote {
-                            url('git://'+gitblitServer + '/' + project.name )
-                            refspec('+refs/heads/*:refs/remotes/origin/*')
-                        }
-                        branch(branchName)
-                    }
-                }
-            }
-            steps {
-                maven {
-                    goals('clean install')
-                    mavenOpts('-Xmx700m')
-                    localRepository(javaposse.jobdsl.dsl.helpers.LocalRepositoryLocation.LOCAL_TO_WORKSPACE)
-                }
-            }
-        }
-        job(projectName+'_sonar') {
-            description 'Job sonar du projet ' + projectName
-            triggers {
-                scm {
-                    git {
-                        remote {
-                            url('git://'+gitblitServer + '/' + project.name )
-                            refspec('+refs/heads/*:refs/remotes/origin/*')
-                        }
-                        branch(branchName)
-                        localBranch('master')
-                    }
-                }
-            }
-            steps {
+        new DefaultJob (
+            name : projectName+ '_' + branchName,
+            gitRepository : project.name,
+            scmBranch : branchName
+        ).build(this)
+        new DefaultJob (
+            name : projectName+ '_' + branchName + '_sonar',
+            description : 'Job sonar du projet ' + projectName,
+            gitRepository : project.name,
+            scmBranch : branchName,
+            steps : {
                 maven {
                     goals('clean sonar:sonar')
                     mavenOpts('-Xmx700m')
                     localRepository(javaposse.jobdsl.dsl.helpers.LocalRepositoryLocation.LOCAL_TO_WORKSPACE)
                 }
             }
+        ).build(this)
+    }
+    listView(projectName) {
+        jobs {
+            regex(projectName + '.*')
+        }
+        columns {
+            status()
+            weather()
+            name()
+            lastSuccess()
+            lastFailure()
+            lastDuration()
+            buildButton()
         }
     }
 }
