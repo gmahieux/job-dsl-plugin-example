@@ -61,7 +61,10 @@ repos.collect{it.value}.findAll{it.projectPath=='projets'}.each{project ->
         new DefaultJob (
             name : projectName+ '_' + branchName,
             gitRepository : project.name,
-            scmBranch : branchName
+            scmBranch : branchName,
+            additionalConf : {
+                displayName projectName + ' [' + branchName +']'
+            }
         ).build(this)
         new DefaultJob (
             name : projectName+ '_' + branchName + '_sonar',
@@ -74,6 +77,9 @@ repos.collect{it.value}.findAll{it.projectPath=='projets'}.each{project ->
                     mavenOpts('-Xmx700m')
                     localRepository(javaposse.jobdsl.dsl.helpers.LocalRepositoryLocation.LOCAL_TO_WORKSPACE)
                 }
+            },
+            additionalConf : {
+                displayName  projectName + '-sonar [' + branchName +']'
             }
         ).build(this)
     }
